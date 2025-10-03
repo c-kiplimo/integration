@@ -74,9 +74,9 @@ jobs:
       # 6️⃣ Create and push tag using PAT
       - name: Create Git tag
         env:
-          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_PAT }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          git remote set-url origin https://$GITHUB_TOKEN_PAT@github.com/${{ github.repository }}.git
+          git remote set-url origin https://$PAT_TOKEN@github.com/${{ github.repository }}.git
           git tag ${{ env.NEW_TAG }}
           git push origin ${{ env.NEW_TAG }}
 
@@ -91,7 +91,7 @@ jobs:
       # 8️⃣ Configure Maven for GitHub Packages
       - name: Configure Maven
         env:
-          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_PAT }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           mkdir -p $HOME/.m2
           echo "<settings>
@@ -99,7 +99,7 @@ jobs:
                     <server>
                       <id>github</id>
                       <username>${{ github.actor }}</username>
-                      <password>${GITHUB_TOKEN_PAT}</password>
+                      <password>${PAT_TOKEN}</password>
                     </server>
                   </servers>
                 </settings>" > $HOME/.m2/settings.xml
