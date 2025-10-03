@@ -3,7 +3,7 @@ name: Maven CI/CD & Semantic Release
 on:
   push:
     branches:
-      - main
+      - develop
 
 jobs:
   build-and-release:
