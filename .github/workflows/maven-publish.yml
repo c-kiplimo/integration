@@ -20,20 +20,28 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-      # 3️⃣ Get latest tag
+      # 3️⃣ Get latest tag or fallback to initial
       - name: Get latest tag
         id: get_tag
         run: |
-          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) || echo "v0.0.0")
+          if git describe --tags $(git rev-list --tags --max-count=1) >/dev/null 2>&1; then
+            LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          else
+            LATEST_TAG="v0.0.0"
+          fi
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
           echo "LATEST_VERSION=${LATEST_TAG#v}" >> $GITHUB_ENV
 
-      # 4️⃣ Determine version bump
+      # 4️⃣ Determine version bump safely
       - name: Determine bump type
         id: bump
         run: |
           BUMP="patch"
-          COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
+          if git rev-parse ${{ env.LATEST_TAG }} >/dev/null 2>&1; then
+            COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
+          else
+            COMMITS=$(git log --pretty=format:%s)
+          fi
           echo "Commits since last tag:"; echo "$COMMITS"
           if echo "$COMMITS" | grep -iq "\[major\]"; then
             BUMP="major"
