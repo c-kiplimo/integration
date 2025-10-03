@@ -20,28 +20,20 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-      # 3️⃣ Get latest tag or fallback to initial
+      # 3️⃣ Get latest tag
       - name: Get latest tag
         id: get_tag
         run: |
-          if git describe --tags $(git rev-list --tags --max-count=1) >/dev/null 2>&1; then
-            LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
-          else
-            LATEST_TAG="v0.0.0"
-          fi
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) || echo "v0.0.0")
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
           echo "LATEST_VERSION=${LATEST_TAG#v}" >> $GITHUB_ENV
 
-      # 4️⃣ Determine version bump safely
+      # 4️⃣ Determine version bump
       - name: Determine bump type
         id: bump
         run: |
           BUMP="patch"
-          if git rev-parse ${{ env.LATEST_TAG }} >/dev/null 2>&1; then
-            COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
-          else
-            COMMITS=$(git log --pretty=format:%s)
-          fi
+          COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
           echo "Commits since last tag:"; echo "$COMMITS"
           if echo "$COMMITS" | grep -iq "\[major\]"; then
             BUMP="major"
@@ -74,11 +66,11 @@ jobs:
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-      # 6️⃣ Create and push tag
+      # 6️⃣ Create and push tag using PAT
       - name: Create Git tag
         run: |
           git tag ${{ env.NEW_TAG }}
-          git push origin ${{ env.NEW_TAG }}
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/c-kiplimo/integration.git ${{ env.NEW_TAG }}
 
       # 7️⃣ Setup Java for Maven build
       - name: Set up Java
