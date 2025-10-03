@@ -10,11 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout repository with full history
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
-      # 2️⃣ Configure Git for tagging
+      # 2️⃣ Configure Git
       - name: Configure Git
         run: |
           git config user.name "GitHub Actions"
@@ -33,7 +36,6 @@ jobs:
         id: bump
         run: |
           BUMP="patch"
-          # Check if latest tag exists
           if git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
             COMMITS=$(git log $LATEST_TAG..HEAD --pretty=format:%s)
           else
@@ -73,14 +75,11 @@ jobs:
 
       # 6️⃣ Create and push tag using PAT
       - name: Create Git tag
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          git remote set-url origin https://$PAT_TOKEN@github.com/${{ github.repository }}.git
           git tag ${{ env.NEW_TAG }}
-          git push origin ${{ env.NEW_TAG }}
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git ${{ env.NEW_TAG }}
 
-      # 7️⃣ Setup Java for Maven build
+      # 7️⃣ Setup Java
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
@@ -90,8 +89,6 @@ jobs:
 
       # 8️⃣ Configure Maven for GitHub Packages
       - name: Configure Maven
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           mkdir -p $HOME/.m2
           echo "<settings>
@@ -99,7 +96,7 @@ jobs:
                     <server>
                       <id>github</id>
                       <username>${{ github.actor }}</username>
-                      <password>${PAT_TOKEN}</password>
+                      <password>${{ secrets.PAT_TOKEN }}</password>
                     </server>
                   </servers>
                 </settings>" > $HOME/.m2/settings.xml
