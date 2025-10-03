@@ -24,7 +24,7 @@ jobs:
       - name: Get latest tag
         id: get_tag
         run: |
-          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) || echo "v0.0.0")
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) 2>/dev/null || echo "v0.0.0")
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
           echo "LATEST_VERSION=${LATEST_TAG#v}" >> $GITHUB_ENV
 
@@ -33,7 +33,12 @@ jobs:
         id: bump
         run: |
           BUMP="patch"
-          COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
+          # Check if latest tag exists
+          if git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+            COMMITS=$(git log $LATEST_TAG..HEAD --pretty=format:%s)
+          else
+            COMMITS=$(git log --pretty=format:%s)
+          fi
           echo "Commits since last tag:"; echo "$COMMITS"
           if echo "$COMMITS" | grep -iq "\[major\]"; then
             BUMP="major"
@@ -68,9 +73,12 @@ jobs:
 
       # 6️⃣ Create and push tag using PAT
       - name: Create Git tag
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_PAT }}
         run: |
+          git remote set-url origin https://$GITHUB_TOKEN_PAT@github.com/${{ github.repository }}.git
           git tag ${{ env.NEW_TAG }}
-          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/c-kiplimo/integration.git ${{ env.NEW_TAG }}
+          git push origin ${{ env.NEW_TAG }}
 
       # 7️⃣ Setup Java for Maven build
       - name: Set up Java
@@ -82,6 +90,8 @@ jobs:
 
       # 8️⃣ Configure Maven for GitHub Packages
       - name: Configure Maven
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_PAT }}
         run: |
           mkdir -p $HOME/.m2
           echo "<settings>
@@ -89,7 +99,7 @@ jobs:
                     <server>
                       <id>github</id>
                       <username>${{ github.actor }}</username>
-                      <password>${{ secrets.GITHUB_TOKEN }}</password>
+                      <password>${GITHUB_TOKEN_PAT}</password>
                     </server>
                   </servers>
                 </settings>" > $HOME/.m2/settings.xml
