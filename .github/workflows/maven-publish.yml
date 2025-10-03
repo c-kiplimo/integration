@@ -1,17 +1,78 @@
-name: Release
+name: Maven CI/CD & Semantic Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'  # Only trigger on version tags
+    branches:
+      - main
 
 jobs:
-  release:
+  build-and-release:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      # 1️⃣ Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
+      # 2️⃣ Configure Git for tagging
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      # 3️⃣ Get latest tag
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1) || echo "v0.0.0")
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+          echo "LATEST_VERSION=${LATEST_TAG#v}" >> $GITHUB_ENV
+
+      # 4️⃣ Determine version bump
+      - name: Determine bump type
+        id: bump
+        run: |
+          BUMP="patch"
+          COMMITS=$(git log ${{ env.LATEST_TAG }}..HEAD --pretty=format:%s)
+          echo "Commits since last tag:"; echo "$COMMITS"
+          if echo "$COMMITS" | grep -iq "\[major\]"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -iq "\[minor\]"; then
+            BUMP="minor"
+          fi
+          echo "BUMP=$BUMP" >> $GITHUB_ENV
+
+      # 5️⃣ Calculate new version
+      - name: Increment version
+        id: inc_version
+        run: |
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${{ env.LATEST_VERSION }}"
+          case "${{ env.BUMP }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          NEW_TAG="v$NEW_VERSION"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+
+      # 6️⃣ Create and push tag
+      - name: Create Git tag
+        run: |
+          git tag ${{ env.NEW_TAG }}
+          git push origin ${{ env.NEW_TAG }}
+
+      # 7️⃣ Setup Java for Maven build
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
@@ -19,7 +80,8 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Configure Maven for GitHub Packages
+      # 8️⃣ Configure Maven for GitHub Packages
+      - name: Configure Maven
         run: |
           mkdir -p $HOME/.m2
           echo "<settings>
@@ -32,5 +94,10 @@ jobs:
                   </servers>
                 </settings>" > $HOME/.m2/settings.xml
 
+      # 9️⃣ Update Maven version
+      - name: Update Maven version
+        run: mvn versions:set -DnewVersion=${{ env.NEW_VERSION }}
+
+      # 🔟 Build and deploy library
       - name: Build and Deploy
         run: mvn clean deploy -DskipTests
