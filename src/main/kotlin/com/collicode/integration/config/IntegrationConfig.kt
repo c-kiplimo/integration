@@ -8,8 +8,6 @@ import com.collicode.integration.redis.config.CustomRedisProperties
 import com.collicode.integration.redis.config.RedisConfig
 import com.collicode.integration.redis.service.RedisDataProvider
 import com.collicode.integration.redis.service.RedisDataProviderImpl
-import io.micrometer.prometheusmetrics.PrometheusConfig
-import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -40,15 +38,5 @@ class IntegrationConfig {
         customRedisProperties: CustomRedisProperties,
     ): RedisDataProvider {
         return RedisDataProviderImpl(stringRedisTemplate, customRedisProperties)
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-        name = ["metrics.prometheus.enabled"],
-        havingValue = "true",
-        matchIfMissing = true
-    )
-    fun prometheusRegistry(): PrometheusMeterRegistry {
-        return PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
     }
 }
